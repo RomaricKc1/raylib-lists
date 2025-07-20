@@ -31,7 +31,7 @@ zig fetch --save git+https://github.com/RomaricKc1/raylib-lists/
 And add these lines to your `build.zig` file:
 
 ```zig
-const rl_lists_dep = b.dependency("rl_lists", .{
+const rl_lists_dep = b.dependency("raylib_lists", .{
     .target = target,
     .optimize = optimize,
 });
