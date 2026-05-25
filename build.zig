@@ -36,7 +36,7 @@ pub fn build(b: *std.Build) void {
     });
 
     // linking
-    exe.linkLibrary(raylib_artifact);
+    exe.root_module.linkLibrary(raylib_artifact);
     exe.root_module.addImport("raylib", raylib);
     exe.root_module.addImport("raygui", raygui);
 
@@ -67,9 +67,7 @@ pub fn build(b: *std.Build) void {
     });
 
     // code coverage
-    const allocator = std.heap.page_allocator;
-    const xgd_home = std.process.getEnvVarOwned(allocator, "HOME") catch "";
-    defer allocator.free(xgd_home);
+    const xgd_home = b.graph.environ_map.get("HOME") orelse "";
     const exclude_pat = b.fmt("--exclude-path={s}/.cache/zig", .{xgd_home});
 
     const code_cov = b.option(bool, "test_coverage", "Gen the code coverage") orelse false;

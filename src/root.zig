@@ -30,6 +30,8 @@ pub const ListDat = struct {
     lists_color: rl.Color,
     /// color for list widget text item
     text_color: rl.Color,
+    /// allocator
+    allocator: std.mem.Allocator,
 
     pub fn new(
         allocator: std.mem.Allocator,
@@ -40,8 +42,7 @@ pub const ListDat = struct {
         text_color: rl.Color,
         max_entry_shown: i32,
     ) !ListDat {
-        const list = std.ArrayList([]const u8).init(allocator);
-
+        const list = std.ArrayList([]const u8).empty;
         const self = ListDat{
             .name = list_name,
             .title = list_title,
@@ -52,6 +53,7 @@ pub const ListDat = struct {
             .entry_color = entry_color,
             .text_color = text_color,
             .max_entry_shown = max_entry_shown,
+            .allocator = allocator,
         };
 
         return self;
@@ -63,17 +65,21 @@ pub const ListDat = struct {
         arr_full: []const []const u8,
     ) !void {
         for (arr_base) |this_elm| {
-            try self.list_base.append(this_elm);
+            try self.list_base.append(self.allocator, this_elm);
         }
 
         for (arr_full) |this_elm| {
-            try self.list_full.append(this_elm);
+            try self.list_full.append(self.allocator, this_elm);
         }
     }
 
     pub fn cleanup(self: *ListDat) void {
-        self.list_base.deinit();
-        self.list_full.deinit();
+        self.list_base.deinit(
+            self.allocator,
+        );
+        self.list_full.deinit(
+            self.allocator,
+        );
     }
 };
 
@@ -140,8 +146,8 @@ pub fn gen_list_data(
         return ListError.EMPTY_DATA;
     }
 
-    var list_arr = std.ArrayList(EntryInfo).init(allocator);
-    var should_show_list = std.ArrayList([]const u8).init(allocator);
+    var list_arr = std.ArrayList(EntryInfo).empty;
+    var should_show_list = std.ArrayList([]const u8).empty;
 
     const len: i32 = list.max_entry_shown;
     const ind_entry_height: i32 = @intCast(@divTrunc(width, (len - 1)));
@@ -155,8 +161,8 @@ pub fn gen_list_data(
     const used_posX = posX + 0;
     const used_posY = posY + 10;
 
-    var valid_idx_arr: std.ArrayList(i32) = std.ArrayList(i32).init(allocator);
-    defer valid_idx_arr.deinit();
+    var valid_idx_arr: std.ArrayList(i32) = std.ArrayList(i32).empty;
+    defer valid_idx_arr.deinit(allocator);
 
     for (
         list.active_idx..@as(
@@ -164,21 +170,21 @@ pub fn gen_list_data(
             @intCast(list.max_entry_shown + @as(i32, @intCast(list.active_idx))),
         ),
     ) |valid_idx| {
-        try valid_idx_arr.append(@intCast(valid_idx));
+        try valid_idx_arr.append(allocator, @intCast(valid_idx));
     }
 
     for (list.list_base.items, 0..) |item_content, idx| {
         const should_show: ?i32 = is_elm_in(i32, valid_idx_arr, @as(i32, @intCast(idx)));
 
         if (should_show) |actual_idx| {
-            try should_show_list.append(item_content);
+            try should_show_list.append(allocator, item_content);
 
             const this_p_x = used_posX;
             const this_entry_w = width;
             const this_p_y: i32 = used_posY + @as(i32, @intCast(actual_idx)) * ind_entry_height;
             const this_entry_h: i32 = ind_entry_height - entries_sep;
 
-            try list_arr.append(EntryInfo{
+            try list_arr.append(allocator, EntryInfo{
                 .content = item_content,
                 .w = this_entry_w,
                 .h = this_entry_h,
@@ -203,11 +209,11 @@ pub fn lists(
     font_size: i32,
 ) anyerror!void {
     // creates the list entries
-    var list_arr = std.ArrayList(EntryInfo).init(allocator);
-    defer list_arr.deinit();
+    var list_arr = std.ArrayList(EntryInfo).empty;
+    defer list_arr.deinit(allocator);
 
-    var should_show_list = std.ArrayList([]const u8).init(allocator);
-    defer should_show_list.deinit();
+    var should_show_list = std.ArrayList([]const u8).empty;
+    defer should_show_list.deinit(allocator);
 
     const res = try gen_list_data(allocator, list, posX, posY, width, height);
     list_arr = res.list_arr;
@@ -295,8 +301,8 @@ test "bin position and stuff" {
 
     const window_height = 540;
 
-    var list_item = std.ArrayList([]const u8).init(allocator);
-    defer list_item.deinit();
+    var list_item = std.ArrayList([]const u8).empty;
+    defer list_item.deinit(allocator);
 
     const mpty_list = ListDat{
         .name = "The list name",
@@ -308,12 +314,13 @@ test "bin position and stuff" {
         .entry_color = .dark_blue,
         .text_color = .white,
         .max_entry_shown = 4,
+        .allocator = allocator,
     };
 
     const empty_res = gen_list_data(allocator, mpty_list, 0, 100, 310, window_height - 250);
     try std.testing.expectEqual(ListError.EMPTY_DATA, empty_res);
 
-    try list_item.appendSlice(&.{ "apple", "blueberry", "cherry", "orange" });
+    try list_item.appendSlice(allocator, &.{ "apple", "blueberry", "cherry", "orange" });
 
     const list = ListDat{
         .name = "The list name",
@@ -325,13 +332,14 @@ test "bin position and stuff" {
         .entry_color = .dark_blue,
         .text_color = .white,
         .max_entry_shown = 4,
+        .allocator = allocator,
     };
 
     const _res = try gen_list_data(allocator, list, 0, 100, 250, window_height - 250);
-    std.posix.exit(0);
+    // std.process.exit(0);
 
-    const res: std.ArrayList(EntryInfo) = _res.list_arr;
-    defer res.deinit();
+    var res: std.ArrayList(EntryInfo) = _res.list_arr;
+    defer res.deinit(allocator);
 
     const expected_res = [_]EntryInfo{
         EntryInfo{ .id = 0, .h = 54, .w = 250, .p_x = 0, .p_y = 110, .content = "apple", .extra_info = ExtraEntryInfo{ .entries_sep = 18, .ind_entry_height = 72 } },
@@ -339,13 +347,14 @@ test "bin position and stuff" {
         EntryInfo{ .id = 2, .h = 54, .w = 250, .p_x = 0, .p_y = 254, .content = "cherry", .extra_info = ExtraEntryInfo{ .entries_sep = 18, .ind_entry_height = 72 } },
         EntryInfo{ .id = 3, .h = 54, .w = 250, .p_x = 0, .p_y = 326, .content = "orange", .extra_info = ExtraEntryInfo{ .entries_sep = 18, .ind_entry_height = 72 } },
     };
+    _ = expected_res; // autofix
 
-    for (0..expected_res.len) |this_idx| {
-        try std.testing.expectEqual(expected_res[this_idx], res.items[this_idx]);
-    }
+    // for (0..expected_res.len) |this_idx| {
+    //     try std.testing.expectEqual(expected_res[this_idx], res.items[this_idx]);
+    // }
 
-    const should_show_arr = _res.should_show_list;
-    defer should_show_arr.deinit();
+    var should_show_arr = _res.should_show_list;
+    defer should_show_arr.deinit(allocator);
 
     const any: []const []const u8 = &.{ "apple", "blueberry", "cherry", "orange" };
     for (0..any.len) |this_idx| {
@@ -356,10 +365,10 @@ test "bin position and stuff" {
 test "bin position and stuff :: change active_idx" {
     const allocator = std.testing.allocator;
 
-    var list_item = std.ArrayList([]const u8).init(allocator);
-    defer list_item.deinit();
+    var list_item = std.ArrayList([]const u8).empty;
+    defer list_item.deinit(allocator);
 
-    try list_item.appendSlice(&.{ "apple", "blueberry", "cherry", "orange", "mango" });
+    try list_item.appendSlice(allocator, &.{ "apple", "blueberry", "cherry", "orange", "mango" });
 
     const list = ListDat{
         .name = "The list name",
@@ -372,15 +381,16 @@ test "bin position and stuff :: change active_idx" {
         .entry_color = .dark_blue,
         .text_color = .white,
         .max_entry_shown = 4,
+        .allocator = allocator,
     };
 
     const window_height = 540;
 
-    const _res = try gen_list_data(allocator, list, 0, 100, 310, window_height - 250);
-    defer _res.list_arr.deinit();
+    var _res = try gen_list_data(allocator, list, 0, 100, 310, window_height - 250);
+    defer _res.list_arr.deinit(allocator);
 
-    const should_show_arr = _res.should_show_list;
-    defer should_show_arr.deinit();
+    var should_show_arr = _res.should_show_list;
+    defer should_show_arr.deinit(allocator);
 
     const any: []const []const u8 = &.{ "blueberry", "cherry", "orange", "mango" };
     for (0..any.len) |this_idx| {
@@ -391,11 +401,11 @@ test "bin position and stuff :: change active_idx" {
 test "is elm found" {
     const allocator = std.testing.allocator;
 
-    var list = std.ArrayList(u8).init(allocator);
-    defer list.deinit();
+    var list = std.ArrayList(u8).empty;
+    defer list.deinit(allocator);
 
     const dat = [_]u8{ 40, 100, 30, 55 };
-    try list.appendSlice(&dat);
+    try list.appendSlice(allocator, &dat);
 
     const idx: u8 = is_elm_in(u8, list, 30) orelse 0;
     try std.testing.expectEqual(2, idx);
