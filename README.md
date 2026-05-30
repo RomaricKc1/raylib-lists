@@ -4,7 +4,7 @@ List widget for [Raylib-zig](https://github.com/Not-Nik/raylib-zig).
 
 Example usage here -> [ZISTORY](https://github.com/RomaricKc1/zistory).
 
-Tested on Zig version `0.16.0`.
+Tested on Zig version `0.16.0` and `0.17.0-dev.387+31f157d80`.
 
 > [!NOTE]
 > This is configured to work on `wayland`. If you are on `x11`, you'll need to

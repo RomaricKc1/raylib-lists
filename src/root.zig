@@ -263,7 +263,12 @@ pub fn format_text(
     text: []const u8,
 ) ![:0]const u8 {
     if (command) |cmd| {
-        const anytext = try std.fmt.allocPrint(allocator, "{s} {s}", .{ text, cmd });
+        const anytext = try std.fmt.allocPrintSentinel(
+            allocator,
+            "{s} {s}",
+            .{ text, cmd },
+            0,
+        );
         defer allocator.free(anytext);
         return rl.textFormat("%s", .{anytext.ptr});
     } else {
